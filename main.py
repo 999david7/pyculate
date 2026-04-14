@@ -3,58 +3,59 @@ import math
 import statistics
 from datetime import datetime
 
-# ==================== APP SETUP ====================
+# ==================== SETUP ====================
 ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("blue")
 
 app = ctk.CTk()
-app.title("Ultimate Glass Calculator")
-app.geometry("460x640")
-app.minsize(420, 640)
+app.geometry("500x450")
+app.title("Calculator")
+app.resizable(True, True)
+app.configure(fg_color="#000000")
 
 # ==================== SAFE MATH ====================
 allowed_math = {name: getattr(math, name) for name in dir(math) if not name.startswith("_")}
-allowed_math.update({
-    "abs": abs,
-    "round": round,
-    "pow": pow
-})
+allowed_math.update({"abs": abs, "round": round, "pow": pow})
 
 # ==================== STATE ====================
 expression = ""
 memory = 0
 history = []
+advanced_mode = False
 
-# ==================== CORE LOGIC ====================
-def update_display():
-    display_var.set(expression)
+# ==================== DISPLAY ====================
+display_var = ctk.StringVar(value="0")
 
+def update_display(value=None):
+    if value is not None:
+        display_var.set(value)
+    else:
+        display_var.set(expression if expression else "0")
 
-def press(value):
+display = ctk.CTkLabel(
+    app,
+    textvariable=display_var,
+    font=("Helvetica Neue", 42),
+    text_color="white",
+    anchor="e",
+    padx=20
+)
+display.pack(fill="both", pady=(20, 10))
+
+# ==================== CORE ====================
+def press(val):
     global expression
-    expression += str(value)
+    expression += str(val)
     update_display()
-
 
 def clear():
     global expression
     expression = ""
-    update_display()
-
+    update_display("0")
 
 def backspace():
     global expression
     expression = expression[:-1]
     update_display()
-
-
-def add_history(expr, result):
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    entry = f"[{timestamp}] {expr} = {result}"
-    history.append(entry)
-    history_box.insert("end", entry + "\n")
-    history_box.see("end")
-
 
 def calculate():
     global expression
@@ -63,70 +64,73 @@ def calculate():
         add_history(expression, result)
         expression = str(result)
         update_display()
-    except Exception:
-        display_var.set("Error")
+    except:
+        update_display("Error")
         expression = ""
+
+# ==================== HISTORY ====================
+def add_history(expr, result):
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    history.append(f"[{timestamp}] {expr} = {result}")
+
+def show_history():
+    win = ctk.CTkToplevel(app)
+    win.title("History")
+    win.geometry("300x400")
+    box = ctk.CTkTextbox(win)
+    box.pack(fill="both", expand=True)
+    box.insert("end", "\n".join(history))
 
 # ==================== MEMORY ====================
 def memory_add():
     global memory
-    try:
-        memory += float(expression or 0)
-    except:
-        pass
-
+    try: memory += float(expression)
+    except: pass
 
 def memory_sub():
     global memory
-    try:
-        memory -= float(expression or 0)
-    except:
-        pass
-
+    try: memory -= float(expression)
+    except: pass
 
 def memory_recall():
     press(str(memory))
-
 
 def memory_clear():
     global memory
     memory = 0
 
-# ==================== STATISTICS ====================
+# ==================== STATS ====================
 def stats_mean():
     try:
         nums = list(map(float, expression.split(",")))
-        result = statistics.mean(nums)
-        press(str(result))
+        set_result(statistics.mean(nums))
     except:
-        display_var.set("Stats Error")
-
+        update_display("Stats Err")
 
 def stats_std():
     try:
         nums = list(map(float, expression.split(",")))
-        result = statistics.stdev(nums)
-        press(str(result))
+        set_result(statistics.stdev(nums))
     except:
-        display_var.set("Stats Error")
+        update_display("Stats Err")
 
-# ==================== UNIT CONVERTER ====================
+# ==================== CONVERSIONS ====================
 def meters_to_feet():
     try:
-        val = float(expression)
-        clear()
-        press(str(val * 3.28084))
+        set_result(float(expression) * 3.28084)
     except:
-        display_var.set("Conv Error")
-
+        update_display("Err")
 
 def kg_to_lb():
     try:
-        val = float(expression)
-        clear()
-        press(str(val * 2.20462))
+        set_result(float(expression) * 2.20462)
     except:
-        display_var.set("Conv Error")
+        update_display("Err")
+
+def set_result(val):
+    global expression
+    expression = str(val)
+    update_display()
 
 # ==================== KEYBOARD ====================
 def key_handler(event):
@@ -142,98 +146,84 @@ def key_handler(event):
 
 app.bind("<Key>", key_handler)
 
-# ==================== LAYOUT ROOT ====================
-app.grid_rowconfigure(0, weight=1)
-app.grid_columnconfigure(0, weight=1)
+# ==================== BUTTON STYLE ====================
+def make_btn(parent, text, cmd, bg, row, col, colspan=1):
+    btn = ctk.CTkButton(
+        parent,
+        text=text,
+        command=cmd,
+        width=70,
+        height=70,
+        corner_radius=35,
+        fg_color=bg,
+        hover_color=bg,
+        text_color="white",
+        font=("Helvetica Neue", 20)
+    )
+    btn.grid(row=row, column=col, columnspan=colspan, padx=6, pady=6, sticky="nsew")
 
-main = ctk.CTkFrame(app, corner_radius=28)
-main.grid(row=0, column=0, padx=18, pady=18, sticky="nsew")
-main.grid_rowconfigure(1, weight=1)
-main.grid_columnconfigure(0, weight=1)
+# ==================== FRAMES ====================
+main_frame = ctk.CTkFrame(app, fg_color="#000000")
+main_frame.pack()
 
-# ==================== DISPLAY ====================
-display_var = ctk.StringVar()
+adv_frame = ctk.CTkFrame(app, fg_color="#000000")
 
-display = ctk.CTkEntry(
-    main,
-    textvariable=display_var,
-    height=100,
-    font=("Segoe UI", 40),
-    justify="right",
-    corner_radius=22
-)
-display.grid(row=0, column=0, padx=16, pady=(16, 8), sticky="ew")
+# Grid config
+for f in [main_frame, adv_frame]:
+    for i in range(6):
+        f.grid_rowconfigure(i, weight=1)
+    for i in range(4):
+        f.grid_columnconfigure(i, weight=1)
 
-# ==================== TABS ====================
-tabs = ctk.CTkTabview(main, corner_radius=20)
-tabs.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
+# Colors
+GRAY = "#a5a5a5"
+DARK = "#333333"
+ORANGE = "#ff9500"
 
-calc_tab = tabs.add("Basic")
-sci_tab = tabs.add("Scientific")
-stats_tab = tabs.add("Statistics")
-conv_tab = tabs.add("Convert")
-history_tab = tabs.add("History")
-
-for tab in [calc_tab, sci_tab, stats_tab, conv_tab]:
-    tab.grid_columnconfigure((0, 1, 2, 3), weight=1)
-    tab.grid_rowconfigure(tuple(range(6)), weight=1)
-
-# ==================== BASIC ====================
-basic = [
-    ("C", clear), ("⌫", backspace), ("(", lambda: press("(")), (")", lambda: press(")")),
-    ("7", lambda: press("7")), ("8", lambda: press("8")), ("9", lambda: press("9")), ("/", lambda: press("/")),
-    ("4", lambda: press("4")), ("5", lambda: press("5")), ("6", lambda: press("6")), ("*", lambda: press("*")),
-    ("1", lambda: press("1")), ("2", lambda: press("2")), ("3", lambda: press("3")), ("-", lambda: press("-")),
-    ("0", lambda: press("0")), (".", lambda: press(".")), ("=", calculate), ("+", lambda: press("+")),
+# ==================== STANDARD ====================
+std_buttons = [
+    ("AC", clear, GRAY), ("⌫", backspace, GRAY), ("Mode", lambda: toggle_mode(), GRAY), ("÷", lambda: press("/"), ORANGE),
+    ("7", lambda: press("7"), DARK), ("8", lambda: press("8"), DARK), ("9", lambda: press("9"), DARK), ("×", lambda: press("*"), ORANGE),
+    ("4", lambda: press("4"), DARK), ("5", lambda: press("5"), DARK), ("6", lambda: press("6"), DARK), ("−", lambda: press("-"), ORANGE),
+    ("1", lambda: press("1"), DARK), ("2", lambda: press("2"), DARK), ("3", lambda: press("3"), DARK), ("+", lambda: press("+"), ORANGE),
 ]
 
-for i, (t, c) in enumerate(basic):
-    ctk.CTkButton(calc_tab, text=t, command=c, font=("Segoe UI", 20, "bold"), corner_radius=16)\
-        .grid(row=i // 4, column=i % 4, padx=6, pady=6, sticky="nsew")
+for i, (t, c, col) in enumerate(std_buttons):
+    make_btn(main_frame, t, c, col, i//4, i%4)
 
-# ==================== SCIENTIFIC ====================
-sci = [
+make_btn(main_frame, "0", lambda: press("0"), DARK, 4, 0, 2)
+make_btn(main_frame, ".", lambda: press("."), DARK, 4, 2)
+make_btn(main_frame, "=", calculate, ORANGE, 4, 3)
+
+# ==================== ADVANCED ====================
+adv_buttons = [
     ("sin", lambda: press("sin(")), ("cos", lambda: press("cos(")),
-    ("tan", lambda: press("tan(")), ("asin", lambda: press("asin(")),
-    ("acos", lambda: press("acos(")), ("atan", lambda: press("atan(")),
-    ("sqrt", lambda: press("sqrt(")), ("log", lambda: press("log(")),
-    ("ln", lambda: press("log(")), ("^", lambda: press("**")),
-    ("!", lambda: press("factorial(")), ("π", lambda: press("pi")),
-    ("e", lambda: press("e")), ("M+", memory_add),
-    ("M-", memory_sub), ("MR", memory_recall),
-    ("MC", memory_clear),
+    ("tan", lambda: press("tan(")), ("√", lambda: press("sqrt(")),
+    ("log", lambda: press("log(")), ("π", lambda: press("pi")),
+    ("e", lambda: press("e")), ("^", lambda: press("**")),
+    ("M+", memory_add), ("M-", memory_sub),
+    ("MR", memory_recall), ("MC", memory_clear),
+    ("mean", stats_mean), ("std", stats_std),
+    ("m→ft", meters_to_feet), ("kg→lb", kg_to_lb),
+    ("Hist", show_history), ("Back", lambda: toggle_mode())
 ]
 
-for i, (t, c) in enumerate(sci):
-    ctk.CTkButton(sci_tab, text=t, command=c, font=("Segoe UI", 16, "bold"), corner_radius=16)\
-        .grid(row=i // 4, column=i % 4, padx=6, pady=6, sticky="nsew")
+for i, item in enumerate(adv_buttons):
+    if len(item) == 2:
+        t, c = item
+        make_btn(adv_frame, t, c, DARK, i//4, i%4)
 
-# ==================== STATISTICS ====================
-stats_buttons = [
-    ("mean (a,b,c)", stats_mean),
-    ("std dev", stats_std),
-]
+# ==================== MODE SWITCH ====================
+def toggle_mode():
+    global advanced_mode
+    advanced_mode = not advanced_mode
 
-for i, (t, c) in enumerate(stats_buttons):
-    ctk.CTkButton(stats_tab, text=t, command=c, font=("Segoe UI", 18), corner_radius=16)\
-        .grid(row=i, column=0, columnspan=4, padx=10, pady=10, sticky="ew")
-
-# ==================== CONVERSIONS ====================
-conv_buttons = [
-    ("meters → feet", meters_to_feet),
-    ("kg → pounds", kg_to_lb),
-]
-
-for i, (t, c) in enumerate(conv_buttons):
-    ctk.CTkButton(conv_tab, text=t, command=c, font=("Segoe UI", 18), corner_radius=16)\
-        .grid(row=i, column=0, columnspan=4, padx=10, pady=10, sticky="ew")
-
-# ==================== HISTORY ====================
-history_tab.grid_rowconfigure(0, weight=1)
-history_tab.grid_columnconfigure(0, weight=1)
-
-history_box = ctk.CTkTextbox(history_tab, font=("Consolas", 14), corner_radius=16)
-history_box.grid(row=0, column=0, padx=12, pady=12, sticky="nsew")
+    if advanced_mode:
+        main_frame.pack_forget()
+        adv_frame.pack()
+    else:
+        adv_frame.pack_forget()
+        main_frame.pack()
 
 # ==================== RUN ====================
 app.mainloop()
